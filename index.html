@@ -100,8 +100,9 @@
     <button class="tab-btn" onclick="switchTab('topics', this)">Browse Topics</button>
   </div>
 
-  <div id="search-section">
-    <input type="number" id="surah" placeholder="Surah Number (1-114)">
+    <div id="search-section">
+    <input type="number" id="surah" placeholder="Surah Number (1-114)" onchange="fetchSurahMeta()">
+    <div id="surah-meta" style="color: #f2a365; font-size: 12px; text-align: right; margin-top: -5px; margin-bottom: 10px; display: none;"></div>
     <input type="number" id="startAyah" placeholder="Start Ayah">
     <input type="number" id="endAyah" placeholder="End Ayah (Optional for range)">
     <button onclick="searchVerses()">Fetch Data</button>
@@ -178,6 +179,33 @@
     });
     document.getElementById('output').innerHTML = html;
     document.getElementById('loading').style.display = 'none';
+  }
+
+    // Fetch Surah Metadata to guide the user
+  async function fetchSurahMeta() {
+    const surahNum = document.getElementById('surah').value;
+    const metaDiv = document.getElementById('surah-meta');
+    
+    if(!surahNum || surahNum < 1 || surahNum > 114) {
+      metaDiv.style.display = 'none';
+      return;
+    }
+    
+    try {
+      const res = await fetch(`https://api.alquran.cloud/v1/surah/${surahNum}`);
+      const data = await res.json();
+      
+      if(data.code === 200) {
+        metaDiv.innerHTML = `${data.data.englishName} has a total of <b>${data.data.numberOfAyahs}</b> Ayahs.`;
+        metaDiv.style.display = 'block';
+        
+        // Optional: Auto-set max attributes on the input fields to physically prevent typing higher numbers
+        document.getElementById('startAyah').max = data.data.numberOfAyahs;
+        document.getElementById('endAyah').max = data.data.numberOfAyahs;
+      }
+    } catch (e) {
+      metaDiv.style.display = 'none';
+    }
   }
 
   // 5. Execution: Specific Search
