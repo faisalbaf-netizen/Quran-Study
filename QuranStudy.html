@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strategic Research Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Amiri+Quran&display=swap');
+  
+  body { 
+    background-color: #1c1c1e; 
+    color: #ffffff; 
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+    padding: 20px; 
+    margin: 0; 
+  }
+  h2 { 
+    text-align: center; 
+    color: #8e8e93; 
+    font-size: 16px; 
+    text-transform: uppercase; 
+    letter-spacing: 1px; 
+    margin-bottom: 25px;
+  }
+  .control-panel { 
+    background-color: #2c2c2e; 
+    padding: 20px; 
+    border-radius: 12px; 
+    margin-bottom: 30px; 
+  }
+  input, select, button { 
+    width: 100%; 
+    padding: 14px; 
+    margin: 8px 0; 
+    border-radius: 8px; 
+    border: none; 
+    font-size: 16px; 
+    box-sizing: border-box; 
+  }
+  input, select { 
+    background-color: #3a3a3c; 
+    color: #fff; 
+  }
+  button { 
+    background-color: #0dbd8b; 
+    color: #1c1c1e; 
+    font-weight: bold; 
+    cursor: pointer; 
+    margin-top: 15px;
+  }
+  button:active { background-color: #0a9b71; }
+  
+  .tab-buttons { display: flex; gap: 10px; margin-bottom: 15px; }
+  .tab-btn { background-color: #3a3a3c; color: white; flex: 1; margin-top: 0; }
+  .tab-btn.active { background-color: #0dbd8b; color: #1c1c1e; }
+  
+  .verse-container { 
+    margin-bottom: 40px; 
+    border-bottom: 1px solid #333336; 
+    padding-bottom: 30px; 
+    text-align: center; 
+  }
+  .reference { 
+    font-size: 14px; 
+    color: #8e8e93; 
+    font-weight: bold; 
+    margin-bottom: 20px; 
+    text-transform: uppercase; 
+    letter-spacing: 1px; 
+  }
+  .arabic { 
+    font-family: 'Amiri Quran', serif; 
+    font-size: 34px; 
+    line-height: 2.2; 
+    color: #f2a365; 
+    margin-bottom: 25px; 
+    direction: rtl; 
+  }
+  .bengali { 
+    font-size: 18px; 
+    line-height: 1.6; 
+    color: #0dbd8b; 
+  }
+  .loading { 
+    text-align: center; 
+    color: #f2a365; 
+    font-weight: bold;
+    margin-top: 20px; 
+    display: none; 
+  }
+</style>
+</head>
+<body>
+
+<h2>Strategic Research Dashboard</h2>
+
+<div class="control-panel">
+  <div class="tab-buttons">
+    <button class="tab-btn active" onclick="switchTab('search', this)">Specific Ayah</button>
+    <button class="tab-btn" onclick="switchTab('topics', this)">Browse Topics</button>
+  </div>
+
+  <div id="search-section">
+    <input type="number" id="surah" placeholder="Surah Number (1-114)">
+    <input type="number" id="startAyah" placeholder="Start Ayah">
+    <input type="number" id="endAyah" placeholder="End Ayah (Optional for range)">
+    <button onclick="searchVerses()">Fetch Data</button>
+  </div>
+
+  <div id="topics-section" style="display: none;">
+    <select id="topic-select">
+      <option value="">Connecting to database...</option>
+    </select>
+    <button onclick="loadTopic()">Load Category</button>
+  </div>
+</div>
+
+<div id="loading" class="loading">Fetching from API...</div>
+<div id="output"></div>
+
+<script>
+  // Your live GitHub Gist Database URL
+  const dbUrl = "https://gist.githubusercontent.com/faisalbaf-netizen/0d53efc73158ae1d760acc6055a826fd/raw/QuranTopics.json";
+  let database = {};
+
+  // 1. Initialise the application and download the live database
+  window.onload = async () => {
+    try {
+      const res = await fetch(dbUrl);
+      database = await res.json();
+      const select = document.getElementById('topic-select');
+      select.innerHTML = '<option value="">Select an Analytical Category</option>';
+      
+      // Populate the dropdown menu dynamically
+      Object.keys(database).forEach(topic => {
+        select.innerHTML += `<option value="${topic}">${topic}</option>`;
+      });
+    } catch (e) {
+      document.getElementById('topic-select').innerHTML = '<option value="">Database offline or unavailable</option>';
+    }
+  };
+
+  // 2. Tab Switching Logic
+  function switchTab(tab, btnElement) {
+    document.getElementById('search-section').style.display = tab === 'search' ? 'block' : 'none';
+    document.getElementById('topics-section').style.display = tab === 'topics' ? 'block' : 'none';
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    btnElement.classList.add('active');
+  }
+
+  // 3. API Fetching Engine
+  async function fetchVerse(surah, ayah) {
+    const arRes = await fetch(`https://api.alquran.cloud/v1/ayah/${surah}:${ayah}/quran-uthmani`);
+    const arData = await arRes.json();
+    
+    const bnRes = await fetch(`https://api.alquran.cloud/v1/ayah/${surah}:${ayah}/bn.bengali`);
+    const bnData = await bnRes.json();
+    
+    return {
+      arabic: arData.data.text,
+      bengali: bnData.data.text,
+      name: bnData.data.surah.englishName,
+      surah: surah,
+      ayah: ayah
+    };
+  }
+
+  // 4. HTML Rendering Engine
+  function renderHTML(verses) {
+    let html = '';
+    verses.forEach(v => {
+      html += `
+        <div class="verse-container">
+          <div class="reference">${v.name} ${v.surah}:${v.ayah}</div>
+          <div class="arabic">${v.arabic}</div>
+          <div class="bengali">"${v.bengali}"</div>
+        </div>`;
+    });
+    document.getElementById('output').innerHTML = html;
+    document.getElementById('loading').style.display = 'none';
+  }
+
+  // 5. Execution: Specific Search
+  async function searchVerses() {
+    const surah = document.getElementById('surah').value;
+    const start = document.getElementById('startAyah').value;
+    const end = document.getElementById('endAyah').value || start;
+
+    if(!surah || !start) return alert("Please specify the Surah and Start Ayah.");
+    
+    document.getElementById('output').innerHTML = '';
+    document.getElementById('loading').style.display = 'block';
+
+    let verses = [];
+    for(let i = parseInt(start); i <= parseInt(end); i++) {
+      verses.push(await fetchVerse(surah, i));
+    }
+    renderHTML(verses);
+  }
+
+  // 6. Execution: Database Topic
+  async function loadTopic() {
+    const topic = document.getElementById('topic-select').value;
+    if(!topic) return alert("Please select a category from the dropdown.");
+
+    document.getElementById('output').innerHTML = '';
+    document.getElementById('loading').style.display = 'block';
+
+    const list = database[topic];
+    let verses = [];
+    for(let item of list) {
+      verses.push(await fetchVerse(item.surah, item.ayah));
+    }
+    renderHTML(verses);
+  }
+</script>
+</body>
+</html>
